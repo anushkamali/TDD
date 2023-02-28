@@ -29,21 +29,63 @@ export class Portfolio {
     }
 
     convert(money, currency) {
-        let eurToUsd = 1.2; 1
+        let exchangeRates = new Map();
+        exchangeRates.set("EUR->USD", 1.2);
+        exchangeRates.set("USD->KRW", 1100);
         if (money.currency === currency) {
-            return money.amount;
+            return money.amount; 
         }
-        return money.amount * eurToUsd; 2
+        let key = money.currency + "->" + currency;
+        let rate = exchangeRates.get(key);
+        if (rate === undefined) {
+            return undefined; 
+        }
+        return money.amount * rate; 
     }
 
     add(...moneys) {
         this.moneys = this.moneys.concat(moneys);
     }
 
-    evaluate(currency) {
+    evaluate(bank, currency) {
+        let failures = [];
         let total = this.moneys.reduce( (sum, money) => {
-            return sum + this.convert(money, currency);
-        }, 0);
-        return new Money(total, currency);
+            try {
+                let convertedMoney = bank.convert(money, currency); 1
+                return sum + convertedMoney.amount;
+            }
+            catch (error) {
+                failures.push(error.message);
+                return sum;
+            }
+          }, 0);
+
+        if (!failures.length) {
+            return new Money(total, currency);
+        }
+        throw new Error("Missing exchange rate(s):[" + failures.join() + "]");
+    }
+}
+
+export class Bank {
+    constructor() {
+        this.exchangeRates = new Map();
+    }
+
+    addExchangeRate(currencyFrom, currencyTo, rate) {
+        let key = currencyFrom + "->" + currencyTo;
+        this.exchangeRates.set(key, rate);
+    }
+
+    convert(money, currency) {
+        if (money.currency === currency) {
+            return new Money(money.amount, money.currency); 
+        }
+        let key = money.currency + "->" + currency;
+        let rate = this.exchangeRates.get(key);
+        if (rate === undefined) {
+            throw new Error(key); 
+        }
+        return new Money(money.amount * rate, currency); 
     }
 }
